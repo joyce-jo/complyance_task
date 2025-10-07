@@ -24,7 +24,7 @@ This project demonstrates a full-stack implementation of an **ROI simulation too
 | --------------------- | --------------------------- |
 | **Frontend**          | React + Vite + TailwindCSS  |
 | **Backend**           | FastAPI (Python)            |
-| **Database**          | SQLite (via SQLAlchemy ORM) |
+| **Database**          | Postgres                    |
 | **Report Generation** | ReportLab (PDF)             |
 | **API Testing**       | Postman / cURL              |
 
@@ -34,10 +34,11 @@ This project demonstrates a full-stack implementation of an **ROI simulation too
 
 ```
 Frontend (React)
-   ↓ (REST API)
+   ↓ (REST API + JWT)
 Backend (FastAPI)
+ 
    ↓
-SQLite Database
+Postgres Database
 ```
 
 ---
@@ -139,7 +140,7 @@ Frontend will run at `http://localhost:5173`
 
 ---
 
-##  Example DB Schema (SQLite)
+##  Example DB Schema (Postgres)
 
 | id | scenario_name | inputs (JSON) | results (JSON) | created_at |
 | -- | ------------- | ------------- | -------------- | ---------- |
