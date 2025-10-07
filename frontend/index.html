@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoicing ROI Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.card-shadow { box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+.result-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.savings-card { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.roi-card { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.payback-card { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+.loading { opacity: 0.6; pointer-events: none; }
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- Header -->
+<div class="bg-blue-700 text-white py-8">
+  <div class="container mx-auto px-4 text-center">
+    <h1 class="text-4xl font-bold mb-2">Invoicing ROI Simulator</h1>
+    <p class="text-xl opacity-90">Full-Stack ROI Calculator with Database Storage</p>
+    <div class="mt-4">
+      <span id="apiStatus" class="inline-block px-3 py-1 bg-green-500 text-white rounded-full text-sm cursor-pointer">
+        API Connected
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="container mx-auto px-4 py-8 grid lg:grid-cols-2 gap-8">
+  <!-- Input Form -->
+  <div class="bg-white rounded-xl card-shadow p-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">Business Metrics</h2>
+    <form id="simulatorForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Scenario Name</label>
+        <input type="text" id="scenario_name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Q4_Pilot" value="Q4_Pilot" required>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Monthly Invoice Volume</label>
+          <input type="number" id="monthly_invoice_volume" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="2000" min="1" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">AP Staff Count</label>
+          <input type="number" id="num_ap_staff" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="3" min="1" required>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Hours per Invoice</label>
+          <input type="number" step="0.01" id="avg_hours_per_invoice" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="0.17" min="0.01" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Hourly Wage ($)</label>
+          <input type="number" id="hourly_wage" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="30" min="1" required>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Manual Error Rate (%)</label>
+          <input type="number" step="0.1" id="error_rate_manual" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="0.5" min="0" max="100" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Cost per Error ($)</label>
+          <input type="number" id="error_cost" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="100" min="0" required>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Time Horizon (Months)</label>
+          <input type="number" id="time_horizon_months" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="36" min="1" max="120" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Implementation Cost ($)</label>
+          <input type="number" id="one_time_implementation_cost" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value="50000" min="0" required>
+        </div>
+      </div>
+      <div class="flex gap-4 pt-4">
+        <button type="submit" id="calculateBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">Calculate ROI</button>
+        <button type="button" id="saveScenario" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">Save</button>
+      </div>
+    </form>
+
+    <!-- Saved Scenarios -->
+    <div class="mt-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold text-gray-800">Saved Scenarios</h3>
+        <button id="refreshScenarios" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Refresh</button>
+      </div>
+      <div id="scenariosList" class="space-y-2">
+        <p class="text-gray-500 text-sm text-center py-4">Loading scenarios...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="space-y-6">
+    <div id="resultsPanel" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="savings-card text-white p-6 rounded-xl">
+          <p class="text-sm opacity-90">Monthly Savings</p>
+          <p id="monthlySavings" class="text-3xl font-bold">$0</p>
+        </div>
+        <div class="payback-card text-white p-6 rounded-xl">
+          <p class="text-sm opacity-90">Payback Period</p>
+          <p id="paybackMonths" class="text-3xl font-bold">0 months</p>
+        </div>
+        <div class="roi-card text-white p-6 rounded-xl">
+          <p class="text-sm opacity-90">ROI</p>
+          <p id="roiPercentage" class="text-3xl font-bold">0%</p>
+        </div>
+        <div class="result-card text-white p-6 rounded-xl">
+          <p class="text-sm opacity-90">Total Savings</p>
+          <p id="totalSavings" class="text-3xl font-bold">$0</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl card-shadow p-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Savings Over Time</h3>
+        <canvas id="savingsChart" width="400" height="200"></canvas>
+      </div>
+
+      <div class="bg-white rounded-xl card-shadow p-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Generate Report</h3>
+        <div class="flex gap-4">
+          <input type="email" id="reportEmail" placeholder="Enter your email" class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+          <button id="generateReport" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-200">Download Report</button>
+        </div>
+      </div>
+    </div>
+    <div id="welcomeMessage" class="bg-white rounded-xl card-shadow p-8 text-center">
+      <h3 class="text-2xl font-bold text-gray-800 mb-2">Ready to Calculate Your ROI?</h3>
+      <p class="text-gray-600 mb-4">Fill in your business metrics on the left to see your potential savings from invoice automation.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// API base
+const API_BASE = window.location.origin + '/api';
+let currentResults = null;
+let savingsChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  checkApiConnection();
+  loadScenarios();
+  setupEventListeners();
+});
+
+function setupEventListeners() {
+  document.getElementById('simulatorForm').addEventListener('submit', handleFormSubmit);
+  document.getElementById('saveScenario').addEventListener('click', saveScenario);
+  document.getElementById('generateReport').addEventListener('click', generateReport);
+  document.getElementById('refreshScenarios').addEventListener('click', loadScenarios);
+}
+
+async function checkApiConnection() {
+  const statusEl = document.getElementById('apiStatus');
+  try {
+    const response = await fetch(`${API_BASE}/health`);
+    if (response.ok) statusEl.textContent = 'API Connected';
+    else throw new Error();
+  } catch { statusEl.textContent = 'API Offline (Demo Mode)'; }
+}
+
+async function handleFormSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('calculateBtn');
+  btn.textContent = 'Calculating...'; btn.disabled = true;
+
+  const formData = getFormData();
+  let results;
+  try {
+    const response = await fetch(`${API_BASE}/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    results = response.ok ? await response.json() : calculateROILocal(formData);
+  } catch { results = calculateROILocal(formData); }
+
+  currentResults = results;
+  displayResults(results);
+  btn.textContent = 'Calculate ROI'; btn.disabled = false;
+}
+
+function getFormData() {
+  return {
+    scenario_name: document.getElementById('scenario_name').value,
+    monthly_invoice_volume: parseFloat(document.getElementById('monthly_invoice_volume').value),
+    num_ap_staff: parseFloat(document.getElementById('num_ap_staff').value),
+    avg_hours_per_invoice: parseFloat(document.getElementById('avg_hours_per_invoice').value),
+    hourly_wage: parseFloat(document.getElementById('hourly_wage').value),
+    error_rate_manual: parseFloat(document.getElementById('error_rate_manual').value),
+    error_cost: parseFloat(document.getElementById('error_cost').value),
+    time_horizon_months: parseFloat(document.getElementById('time_horizon_months').value),
+    one_time_implementation_cost: parseFloat(document.getElementById('one_time_implementation_cost').value)
+  };
+}
+
+// Local calculation fallback// Local calculation fallback
+function calculateROILocal(inputs) {
+  const labor_cost_manual = inputs.num_ap_staff * inputs.hourly_wage * inputs.avg_hours_per_invoice * inputs.monthly_invoice_volume;
+  const auto_cost = inputs.monthly_invoice_volume * 0.2;
+  const error_savings = ((inputs.error_rate_manual/100)-0.001) * inputs.monthly_invoice_volume * inputs.error_cost;
+  let monthly_savings = (labor_cost_manual + error_savings) - auto_cost;
+  monthly_savings *= 1.1;
+  const cumulative_savings = monthly_savings * inputs.time_horizon_months;
+  const net_savings = cumulative_savings - inputs.one_time_implementation_cost;
+  return {
+    inputs,
+    monthly_savings,
+    cumulative_savings,
+    net_savings,
+    payback_months: inputs.one_time_implementation_cost/monthly_savings,
+    roi_percentage: (net_savings/inputs.one_time_implementation_cost)*100,
+    timestamp: new Date().toISOString()
+  };
+}
+
+function displayResults(results) {
+  document.getElementById('resultsPanel').classList.remove('hidden');
+  document.getElementById('welcomeMessage').classList.add('hidden');
+
+  document.getElementById('monthlySavings').textContent = `$${Math.round(results.monthly_savings).toLocaleString()}`;
+  document.getElementById('paybackMonths').textContent = `${Math.round(results.payback_months*10)/10} months`;
+  document.getElementById('roiPercentage').textContent = `${Math.round(results.roi_percentage)}%`;
+  document.getElementById('totalSavings').textContent = `$${Math.round(results.net_savings).toLocaleString()}`;
+  createSavingsChart(results);
+}
+
+function createSavingsChart(results) {
+  const ctx = document.getElementById('savingsChart').getContext('2d');
+  if(savingsChart) savingsChart.destroy();
+
+  const months=[], cumulative=[], net=[];
+  for(let i=1;i<=results.inputs.time_horizon_months;i++){
+    months.push(`Month ${i}`);
+    cumulative.push(results.monthly_savings*i);
+    net.push(results.monthly_savings*i - results.inputs.one_time_implementation_cost);
+  }
+
+  savingsChart = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:months,
+      datasets:[
+        {label:'Cumulative Savings', data:cumulative, borderColor:'#4facfe', backgroundColor:'rgba(79,172,254,0.1)', tension:0.4, fill:true},
+        {label:'Net Savings', data:net, borderColor:'#43e97b', backgroundColor:'rgba(67,233,123,0.1)', tension:0.4, fill:true}
+      ]
+    },
+    options:{responsive:true, scales:{y:{beginAtZero:true, ticks:{callback:v=>'$'+v.toLocaleString()}}}}
+  });
+}
+</script>
+</body>
+</html>
