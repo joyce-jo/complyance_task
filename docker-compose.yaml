@@ -1,0 +1,40 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:15
+    container_name: complyance_db
+    restart: always
+    environment:
+      POSTGRES_USER: complyuser
+      POSTGRES_PASSWORD: complypass
+      POSTGRES_DB: complydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+  backend:
+    build:
+      context: ./backend
+    container_name: complyance_backend
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgresql+psycopg2://complyuser:complypass@db:5432/complydb
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/requirements.txt:/app/requirements.txt
+
+volumes:
+  postgres_data:
