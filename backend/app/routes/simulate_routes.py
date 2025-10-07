@@ -1,6 +1,13 @@
-# backend/app/routes/simulate_routes.py
+# scenario_routes.py
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session
+from app.crud import create_scenario, list_scenarios, get_scenario, delete_scenario
+from app.schemas import SaveScenarioRequest
+
+# simulate_routes.py
 from fastapi import APIRouter
-from ..schemas import SimulateRequest
+from app.schemas import SimulateRequest
+
 from typing import Dict
 
 router = APIRouter()

@@ -2,10 +2,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session
-from ..database import get_session
-from ..schemas import EmailRequest
-from ..report import build_report_pdf
-from ..crud import get_scenario
+
+from app.database import get_session
+from app.schemas import EmailRequest
+from app.report import build_report_pdf
+from app.crud import get_scenario
 
 router = APIRouter(prefix="/report", tags=["report"])
 
